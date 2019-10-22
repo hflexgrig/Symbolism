@@ -6776,5 +6776,89 @@ namespace SymbolismTests
                     .AssertEqTo(ΔE == -302.0);
             }
         }
+
+        [Fact]
+        public void SummeryTest()
+        {
+            var expected = "<math xmlns=\"http://www.w3.org/1998/Math/MathML\"><mn>5</mn><mo>+</mo><mn>6</mn></math>";
+            //var expected = "<math xmlns=\"http://www.w3.org/1998/Math/MathML\"><mn>11</mn></math>";
+            //    var factory = MathmlToAlgebraConverter.ToMathFactory(mathml);
+            //    var mathResult = factory.GetGroup(null).Calculate().ToMathML();
+
+            var mo = new Sum(new Integer(5), 6);
+            var mathml = mo.ToMathml(true);
+            Assert.Equal(expected, mathml);
+
+        }
+        //[Fact]
+        //public void SummeryTest()
+        //{
+        //    var mathml = "<math xmlns=\"http://www.w3.org/1998/Math/MathML\"><mn>5</mn><mo>+</mo><mn>6</mn></math>";
+        //    var expected = "<math xmlns=\"http://www.w3.org/1998/Math/MathML\"><mn>11</mn></math>";
+        //    var factory = MathmlToAlgebraConverter.ToMathFactory(mathml);
+        //    var mathResult = factory.GetGroup(null).Calculate().ToMathML();
+
+        //    Assert.AreEqual(expected, mathResult);
+
+        //    mathml = "<math xmlns=\"http://www.w3.org/1998/Math/MathML\"><mn>5</mn><mo>.</mo><mn>64</mn><mo>+</mo><mn>7</mn><mo>.</mo><mn>83</mn></math>";
+        //    expected = "<math xmlns=\"http://www.w3.org/1998/Math/MathML\"><mn>13</mn><mfrac><mrow><mn>47</mn></mrow><mrow><mn>100</mn></mrow></mfrac></math>";
+
+        //    factory = MathmlToAlgebraConverter.ToMathFactory(mathml);
+        //    mathResult = factory.GetGroup(null).Calculate().ToMathML();
+
+        //    Assert.AreEqual(expected, mathResult);
+
+        //    mathml = "<math xmlns=\"http://www.w3.org/1998/Math/MathML\"><mn>3</mn><mo>.</mo><mn>89</mn><mo>-</mo><mn>4</mn><mo>.</mo><mn>78</mn></math>";
+        //    expected = "<math xmlns=\"http://www.w3.org/1998/Math/MathML\"><mfrac><mrow><mn>-89</mn></mrow><mrow><mn>100</mn></mrow></mfrac></math>";
+
+        //    factory = MathmlToAlgebraConverter.ToMathFactory(mathml);
+        //    mathResult = factory.GetGroup(null).Calculate().ToMathML();
+
+        //    Assert.AreEqual(expected, mathResult);
+
+        //    mathml = "<math xmlns=\"http://www.w3.org/1998/Math/MathML\"><mn>5</mn><mo>-</mo><mfenced><mrow><mn>6</mn><mo>-</mo><mn>7</mn></mrow></mfenced></math>";
+        //    expected = "<math xmlns=\"http://www.w3.org/1998/Math/MathML\"><mn>6</mn></math>";
+
+        //    factory = MathmlToAlgebraConverter.ToMathFactory(mathml);
+        //    mathResult = factory.GetGroup(null).Calculate().ToMathML();
+
+        //    Assert.AreEqual(expected, mathResult);
+
+        //    mathml = "<math xmlns=\"http://www.w3.org/1998/Math/MathML\"><mo>-</mo><mfenced><mrow><mn>2</mn><mo>.</mo><mn>2</mn><mo>-</mo><mn>3</mn><mo>.</mo><mn>4</mn></mrow></mfenced></math>";
+        //    expected = "<math xmlns=\"http://www.w3.org/1998/Math/MathML\"><mn>1</mn><mfrac><mrow><mn>1</mn></mrow><mrow><mn>5</mn></mrow></mfrac></math>";
+
+        //    factory = MathmlToAlgebraConverter.ToMathFactory(mathml);
+        //    mathResult = factory.GetGroup(null).Calculate().ToMathML();
+
+        //    Assert.AreEqual(expected, mathResult);
+
+        //    mathml = "<math xmlns=\"http://www.w3.org/1998/Math/MathML\"><mo>-</mo><mfenced><mrow><mn>3</mn><mo>.</mo><mn>4</mn><mo>-</mo><mn>2</mn><mo>.</mo><mn>2</mn></mrow></mfenced></math>";
+        //    expected = "<math xmlns=\"http://www.w3.org/1998/Math/MathML\"><mn>-1</mn><mfrac><mrow><mn>1</mn></mrow><mrow><mn>5</mn></mrow></mfrac></math>";
+
+        //    factory = MathmlToAlgebraConverter.ToMathFactory(mathml);
+        //    mathResult = factory.GetGroup(null).Calculate().ToMathML();
+
+        //    Assert.AreEqual(expected, mathResult);
+
+
+        //    mathml = "<math xmlns=\"http://www.w3.org/1998/Math/MathML\"><mfrac><mn>1</mn><mn>2</mn></mfrac><mo>+</mo><mfrac><mn>4</mn><mn>5</mn></mfrac></math>";
+        //    expected = "<math xmlns=\"http://www.w3.org/1998/Math/MathML\"><mn>1</mn><mfrac><mrow><mn>3</mn></mrow><mrow><mn>10</mn></mrow></mfrac></math>";
+
+        //    factory = MathmlToAlgebraConverter.ToMathFactory(mathml);
+        //    mathResult = factory.GetGroup(null).Calculate().ToMathML();
+
+        //    Assert.AreEqual(expected, mathResult);
+        //}
+
+        //[TestMethod]
+        //public void ComplexExpressionsTest()
+        //{
+        //    var mathml = "<math xmlns=\"http://www.w3.org/1998/Math/MathML\"><mfrac><mrow><mfenced><mrow><mn>1</mn><mo>.</mo><mn>88</mn><mo>+</mo><mn>2</mn><mstyle displaystyle=\"true\"><mfrac><mn>3</mn><mn>25</mn></mfrac></mstyle></mrow></mfenced><mo>&#xB7;</mo><mstyle displaystyle=\"true\"><mfrac><mn>3</mn><mn>16</mn></mfrac></mstyle></mrow><mrow><mn>0</mn><mo>.</mo><mn>625</mn><mo>-</mo><mstyle displaystyle=\"true\"><mfrac><mn>13</mn><mn>18</mn></mfrac></mstyle><mo>:</mo><mstyle displaystyle=\"true\"><mfrac><mn>26</mn><mn>9</mn></mfrac></mstyle></mrow></mfrac><mo>+</mo><mfrac><mrow><mfenced><mrow><mstyle displaystyle=\"true\"><mfrac><mrow><mn>0</mn><mo>.</mo><mn>216</mn></mrow><mrow><mn>0</mn><mo>.</mo><mn>15</mn></mrow></mfrac></mstyle><mo>+</mo><mn>0</mn><mo>.</mo><mn>56</mn></mrow></mfenced><mo>:</mo><mn>0</mn><mo>.</mo><mn>5</mn></mrow><mrow><mfenced><mrow><mn>7</mn><mo>.</mo><mn>7</mn><mo>:</mo><mn>24</mn><mstyle displaystyle=\"true\"><mfrac><mn>3</mn><mn>4</mn></mfrac></mstyle><mo>+</mo><mstyle displaystyle=\"true\"><mfrac><mn>2</mn><mn>15</mn></mfrac></mstyle></mrow></mfenced><mo>&#xB7;</mo><mn>4</mn><mo>.</mo><mn>5</mn></mrow></mfrac></math>";
+        //    var expected = "<math xmlns=\"http://www.w3.org/1998/Math/MathML\"><mn>4</mn></math>";
+        //    var factory = MathmlToAlgebraConverter.ToMathFactory(mathml);
+        //    var mathResult = factory.GetGroup(null).Calculate().ToMathML();
+
+        //    Assert.AreEqual(expected, mathResult);
+        //}
     }
 }

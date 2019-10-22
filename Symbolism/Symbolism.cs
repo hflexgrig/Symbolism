@@ -23,6 +23,8 @@ namespace Symbolism
 {
     public abstract class MathObject
     {
+        public const string MathmlDeclaration = "<math xmlns=\"http://www.w3.org/1998/Math/MathML\">{0}</math>";
+        public const string EmptyMathmlDeclaration = "{}";
         //////////////////////////////////////////////////////////////////////
         public static implicit operator MathObject(int n) => new Integer(n);
 
@@ -137,6 +139,10 @@ namespace Symbolism
             throw new Exception();
         }
 
+        public virtual MathObject Parent { get; set; }
+
+        public virtual string ToMathml(bool useMathmlDeclaration = false) => string.Empty;
+
         public virtual MathObject Numerator() => this;
 
         public virtual MathObject Denominator() => 1;
@@ -168,6 +174,19 @@ namespace Symbolism
             if (Operator == Operators.NotEqual) return a + " != " + b;
             if (Operator == Operators.LessThan) return a + " < " + b;
             if (Operator == Operators.GreaterThan) return a + " > " + b;
+            throw new Exception();
+        }
+
+        public override string ToMathml(bool useMathmlDeclaration = false)
+        {
+            var equalsResult = a.ToMathml() + "<mo>=</mo>" + b.ToMathml();
+            var notEqualsResult = a.ToMathml() + "<mo>≠</mo>" + b.ToMathml();
+            var lessThenResult = a.ToMathml() + "<mo><</mo>" + b.ToMathml();
+            var greaterThenResult = a.ToMathml() + "<mo>></mo>" + b.ToMathml();
+            if (Operator == Operators.Equal) return useMathmlDeclaration ? string.Format(MathmlDeclaration, equalsResult) : equalsResult;
+            if (Operator == Operators.NotEqual) return useMathmlDeclaration ? string.Format(MathmlDeclaration, notEqualsResult) : notEqualsResult;
+            if (Operator == Operators.LessThan) return useMathmlDeclaration ? string.Format(MathmlDeclaration, lessThenResult) : lessThenResult;
+            if (Operator == Operators.GreaterThan) return useMathmlDeclaration ? string.Format(MathmlDeclaration, greaterThenResult) : greaterThenResult;
             throw new Exception();
         }
 
@@ -272,7 +291,7 @@ namespace Symbolism
         public Integer(int n) { val = n; }
 
         public Integer(BigInteger n) { val = n; }
-                        
+
         public static implicit operator Integer(BigInteger n) => new Integer(n);
 
         // public static MathObject operator *(MathObject a, MathObject b) => new Product(a, b).Simplify();
@@ -288,6 +307,12 @@ namespace Symbolism
         public override int GetHashCode() => val.GetHashCode();
 
         public override DoubleFloat ToDouble() => new DoubleFloat((double)val);
+
+        public override string ToMathml(bool useMathmlDeclaration = false)
+        {
+            var result = $"<mn>{val}</mn>";
+            return useMathmlDeclaration ? string.Format(MathmlDeclaration, result) : result;
+        }
     }
 
     public class DoubleFloat : Number
@@ -321,6 +346,14 @@ namespace Symbolism
         public override int GetHashCode() => val.GetHashCode();
 
         public override DoubleFloat ToDouble() => this;
+
+        public override string ToMathml(bool useMathmlDeclaration = false)
+        {
+            var arr = val.ToString().Split('.');
+            var rest = arr.Length > 1 ? $"<mo>.</mo><mn>{arr[1]}</mn>" : string.Empty;
+            var result = $"<mn>{arr[0]}</mn>{rest}";
+            return useMathmlDeclaration ? string.Format(MathmlDeclaration, result) : result;
+        }
     }
 
     public class Fraction : Number
@@ -346,16 +379,124 @@ namespace Symbolism
         public override MathObject Numerator() => numerator;
 
         public override MathObject Denominator() => denominator;
+
+        public override string ToMathml(bool useMathmlDeclaration = false)
+        {
+            if (new Norm(numerator).Simplify() < denominator || numerator == denominator)
+            {
+                var result = $"<mfrac><mrow>{numerator.ToMathml()}</mrow><mrow>{denominator.ToMathml()}</mrow></mfrac>";
+                return useMathmlDeclaration ? string.Format(MathmlDeclaration, result) : result;
+            }
+
+            BigInteger rem;
+
+            var quot = BigInteger.DivRem(numerator.val, denominator.val, out rem);
+            return new MixedNumber(new Integer(quot), new Norm(rem).Simplify() as Integer, denominator).ToMathml();
+        }
     }
+
+    public class MixedNumber : Number
+    {
+        public Integer quotient;
+        public Integer numerator;
+        public Integer denominator;
+
+        public MixedNumber(Integer q, Integer a, Integer b)
+        {
+            quotient = q;
+            numerator = a;
+            denominator = b;
+        }
+
+        public override string FullForm() => $"({quotient} + {numerator} / {denominator})";
+
+        public override string ToMathml(bool useMathmlDeclaration = false)
+        {
+            var result = $"{quotient.ToMathml()}<mfrac><mrow>{numerator.ToMathml()}</mrow><mrow>{denominator.ToMathml()}</mrow></mfrac>";
+            return useMathmlDeclaration ? string.Format(MathmlDeclaration, result) : result;
+        }
+
+        public Fraction ToFraction() => new Fraction((quotient * denominator + numerator) as Integer, denominator);
+        public override DoubleFloat ToDouble() => this.ToFraction().ToDouble();
+        //////////////////////////////////////////////////////////////////////
+
+        public override bool Equals(object obj) =>
+            quotient == (obj as MixedNumber)?.quotient
+            &&
+            numerator == (obj as Fraction)?.numerator
+            &&
+            denominator == (obj as Fraction)?.denominator;
+
+        public override int GetHashCode() => new { quotient, numerator, denominator }.GetHashCode();
+
+        public override MathObject Numerator() => numerator;
+
+        public MathObject Quotient() => quotient;
+
+        public override MathObject Denominator() => denominator;
+    }
+
+
+    public class Norm : Function
+    {
+        private MathObject _x;
+
+        public Norm(MathObject x) : base(null, null, null)
+        {
+            name = "norm";
+            _x = x;
+            args = ImmutableList.Create(_x);
+            proc = NormProc;
+        }
+
+        MathObject NormProc(MathObject[] ls)
+        {
+            if (ls[0] == null)
+            {
+                return 0;
+            }
+
+            if (ls[0] is Number)
+            {
+                if ((Number)ls[0] > new DoubleFloat(0) || (Number)ls[0] == new DoubleFloat(0))
+                {
+                    return ls[0];
+                }
+
+                return -1 * ls[0];
+            }
+
+            if (ls[0] is Product && ((Product)ls[0]).elts[0] == -1)
+            {
+                return new Norm(-1 * ls[0]);
+            }
+
+            return new Norm(ls[0]);
+        }
+
+        //public override bool Equals(object obj) =>
+        //    GetType() == obj.GetType() &&
+        //    name == (obj as Function).name &&
+        //    this.Simplify() == ((Norm)obj).Simplify();
+
+        public override int GetHashCode() => new { name, args }.GetHashCode();
+
+        public override string ToMathml(bool useMathmlDeclaration = false)
+        {
+            var result = $"<mfenced open=\"|\" close=\"|\"><mrow>{args[0].ToMathml()}</mrow></mfenced>";
+            return useMathmlDeclaration ? string.Format(MathmlDeclaration, result) : result;
+        }
+    }
+
 
     public static class Rational
     {
         static BigInteger Div(BigInteger a, BigInteger b)
         { BigInteger rem; return BigInteger.DivRem(a, b, out rem); }
-                
+
         static BigInteger Rem(BigInteger a, BigInteger b)
         { BigInteger rem; BigInteger.DivRem(a, b, out rem); return rem; }
-                
+
         static BigInteger Gcd(BigInteger a, BigInteger b)
         {
             BigInteger r;
@@ -377,13 +518,13 @@ namespace Symbolism
                 var u_ = (Fraction)u;
                 var n = u_.numerator.val;
                 var d = u_.denominator.val;
-                                
+
                 if (Rem(n, d) == 0) return Div(n, d);
 
                 var g = Gcd(n, d);
-                                
+
                 if (d > 0) return new Fraction(Div(n, g), Div(d, g));
-                                
+
                 if (d < 0) return new Fraction(Div(-n, g), Div(-d, g));
             }
 
@@ -437,7 +578,7 @@ namespace Symbolism
             throw new Exception();
         }
 
-        public static Fraction EvaluateSum(MathObject v, MathObject w) =>        
+        public static Fraction EvaluateSum(MathObject v, MathObject w) =>
 
             // a / b + c / d
             // a d / b d + c b / b d
@@ -446,13 +587,13 @@ namespace Symbolism
             new Fraction(
                 Numerator(v) * Denominator(w) + Numerator(w) * Denominator(v),
                 Denominator(v) * Denominator(w));
-        
+
         public static Fraction EvaluateDifference(MathObject v, MathObject w) =>
             new Fraction(
                 Numerator(v) * Denominator(w) - Numerator(w) * Denominator(v),
                 Denominator(v) * Denominator(w));
 
-        public static Fraction EvaluateProduct(MathObject v, MathObject w) => 
+        public static Fraction EvaluateProduct(MathObject v, MathObject w) =>
             new Fraction(
                 Numerator(v) * Numerator(w),
                 Denominator(v) * Denominator(w));
@@ -474,7 +615,7 @@ namespace Symbolism
                 if (n > 0) return EvaluateProduct(EvaluatePower(v, n - 1), v);
 
                 if (n == 0) return 1;
-                
+
                 if (n == -1) return new Fraction(Denominator(v), Numerator(v));
 
                 if (n < -1)
@@ -484,7 +625,7 @@ namespace Symbolism
                     return EvaluatePower(s, -n);
                 }
             }
-                        
+
             if (n >= 1) return 0;
             if (n <= 0) return new Undefined();
 
@@ -507,7 +648,7 @@ namespace Symbolism
                 var v = SimplifyRNERec(((Difference)u).elts[0]);
 
                 if (v == new Undefined()) return v;
-                                
+
                 return EvaluateProduct(-1, v);
             }
 
@@ -591,6 +732,12 @@ namespace Symbolism
 
         public override bool Equals(Object obj) =>
             obj is Symbol ? name == (obj as Symbol).name : false;
+
+        public override string ToMathml(bool useMathmlDeclaration = false)
+        {
+            var result = string.Format("<mi>{0}</mi>", name);
+            return useMathmlDeclaration ? string.Format(MathmlDeclaration, result) : result;
+        }
     }
 
     public static class ListConstructor
@@ -602,9 +749,9 @@ namespace Symbolism
 
     public static class ListUtils
     {
-        public static ImmutableList<MathObject> Cons(this ImmutableList<MathObject> obj, MathObject elt) => 
+        public static ImmutableList<MathObject> Cons(this ImmutableList<MathObject> obj, MathObject elt) =>
             obj.Insert(0, elt);
-        
+
         public static ImmutableList<MathObject> Cdr(this ImmutableList<MathObject> obj) => obj.RemoveAt(0);
 
         public static bool equal(ImmutableList<MathObject> a, ImmutableList<MathObject> b)
@@ -625,11 +772,11 @@ namespace Symbolism
     {
         public delegate MathObject Proc(params MathObject[] ls);
 
-        public readonly String name;
+        public String name { get; protected set; }
 
-        public readonly Proc proc;
-                
-        public readonly ImmutableList<MathObject> args;
+        public Proc proc { get; protected set; }
+
+        public ImmutableList<MathObject> args { get; protected set; }
 
         public Function(string name, Proc proc, IEnumerable<MathObject> args)
         {
@@ -637,7 +784,7 @@ namespace Symbolism
             this.proc = proc;
             this.args = ImmutableList.CreateRange(args);
         }
-                
+
         public override bool Equals(object obj) =>
             GetType() == obj.GetType() &&
             name == (obj as Function).name &&
@@ -659,7 +806,7 @@ namespace Symbolism
         //    // return new T() { args = obj.args.Select(proc).ToList() }.Simplify();
 
         //    // return 
-            
+
         //}
     }
 
@@ -675,7 +822,7 @@ namespace Symbolism
 
             if (ls.Any(elt => elt == true))
                 return new And(ls.Where(elt => elt != true).ToArray()).Simplify();
-                        
+
             if (ls.Any(elt => elt is And))
             {
                 var items = new List<MathObject>();
@@ -692,7 +839,7 @@ namespace Symbolism
 
             return new And(ls);
         }
-                
+
         public And(params MathObject[] ls) : base("and", AndProc, ls) { }
 
         public And() : base("and", AndProc, new List<MathObject>()) { }
@@ -704,9 +851,14 @@ namespace Symbolism
 
         public MathObject AddRange(IEnumerable<MathObject> ls) =>
             And.FromRange(args.AddRange(ls)).Simplify();
-                
-        public MathObject Map(Func<MathObject, MathObject> proc) => 
+
+        public MathObject Map(Func<MathObject, MathObject> proc) =>
             And.FromRange(args.Select(proc)).Simplify();
+
+        public override string ToMathml(bool useMathmlDeclaration = false)
+        {
+            return $"<mfenced open=\"{{\" close=\"}}\"><mrow>{string.Join("<mo>,</mo>", args.ConvertAll(arg => arg.ToMathml()))}</mrow></mfenced>";
+        }
     }
 
     public class Or : Function
@@ -723,7 +875,7 @@ namespace Symbolism
             if (ls.Any(elt => (elt is Bool) && (elt as Bool).val)) return new Bool(true);
 
             if (ls.All(elt => (elt is Bool) && (elt as Bool).val == false)) return new Bool(false);
-                        
+
             if (ls.Any(elt => elt is Or))
             {
                 var items = new List<MathObject>();
@@ -733,13 +885,13 @@ namespace Symbolism
                     if (elt is Or) items.AddRange((elt as Or).args);
                     else items.Add(elt);
                 }
-                                
+
                 return Or.FromRange(items).Simplify();
             }
 
             return new Or(ls);
         }
-                
+
         public Or(params MathObject[] ls) : base("or", OrProc, ls) { }
 
         public Or() : base("or", OrProc, new List<MathObject>()) { }
@@ -747,6 +899,11 @@ namespace Symbolism
         public static Or FromRange(IEnumerable<MathObject> ls) => new Or(ls.ToArray());
 
         public MathObject Map(Func<MathObject, MathObject> proc) => Or.FromRange(args.Select(proc)).Simplify();
+
+        public override string ToMathml(bool useMathmlDeclaration = false)
+        {
+            return $"<mfenced open=\"[\" close=\"]\"><mrow>{string.Join("<mo>,</mo>", args.ConvertAll(arg => arg.ToMathml()))}</mrow></mfenced>";
+        }
     }
 
     public static class OrderRelation
@@ -759,7 +916,7 @@ namespace Symbolism
         {
             if (u is Product && ((Product)u).elts[0] is Number)
                 return Product.FromRange((u as Product).elts.Cdr());
-                // return (u as Product).Cdr()
+            // return (u as Product).Cdr()
 
             if (u is Product) return u;
 
@@ -829,7 +986,7 @@ namespace Symbolism
                 return O3(
                     (u as Product).elts.Reverse(),
                     (v as Product).elts.Reverse());
-                                    
+
             if (u is Sum && v is Sum)
                 return O3(
                     (u as Sum).elts.Reverse(),
@@ -938,7 +1095,7 @@ namespace Symbolism
                 return Rational.SimplifyRNE(new Power(v, n));
 
             if (v is DoubleFloat && w is Integer)
-                return new DoubleFloat(Math.Pow(((DoubleFloat)v).val, (double) ((Integer)w).val));
+                return new DoubleFloat(Math.Pow(((DoubleFloat)v).val, (double)((Integer)w).val));
 
             if (v is DoubleFloat && w is Fraction)
                 return new DoubleFloat(Math.Pow(((DoubleFloat)v).val, ((Fraction)w).ToDouble().val));
@@ -954,7 +1111,7 @@ namespace Symbolism
 
             if (v is Product && w is Integer)
                 return (v as Product).Map(elt => elt ^ w);
-            
+
             return new Power(v, w);
         }
 
@@ -977,12 +1134,30 @@ namespace Symbolism
         }
 
         public override int GetHashCode() => new { bas, exp }.GetHashCode();
+
+        public override string ToMathml(bool useMathmlDeclaration = false)
+        {
+            if (exp == new Integer(1) / new Integer(2))
+            {
+                return $"<msqrt>{bas.ToMathml()}</msqrt>";
+            }
+
+            if (exp is Fraction && (exp as Fraction).numerator == 1)
+            {
+                return $"<mroot><mrow>{bas.ToMathml()}</mrow>{(exp as Fraction).denominator.ToMathml()}</mroot>";
+            }
+
+            return string.Format("<msup><mrow>{0}</mrow><mrow>{1}<mrow></msup>",
+                bas.Precedence() < Precedence() ? $"<mfenced><mrow>{bas.ToMathml()}</mrow></mfenced>" : $"{bas.ToMathml()}",
+                exp.Precedence() < Precedence() ? $"<mfenced><mrow>{exp.ToMathml()}</mrow></mfenced>" : $"{exp.ToMathml()}");
+
+        }
     }
 
     public class Product : MathObject
     {
         public readonly ImmutableList<MathObject> elts;
-                
+
         public Product(params MathObject[] ls) => elts = ImmutableList.Create(ls);
 
         public static Product FromRange(IEnumerable<MathObject> ls) => new Product(ls.ToArray());
@@ -1050,7 +1225,7 @@ namespace Symbolism
             if (b is Integer) val = a.val * (double)((Integer)b).val;
 
             if (b is Fraction) val = a.val * ((Fraction)b).ToDouble().val;
-                        
+
             if (val == 1.0) return ImmutableList.Create<MathObject>();
 
             return ImList<MathObject>(new DoubleFloat(val));
@@ -1084,7 +1259,7 @@ namespace Symbolism
                     (elts[1] is Integer || elts[1] is Fraction))
                 {
                     var P = Rational.SimplifyRNE(new Product(elts[0], elts[1]));
-                                        
+
                     if (P == 1) return ImmutableList.Create<MathObject>();
 
                     return ImList(P);
@@ -1099,7 +1274,7 @@ namespace Symbolism
                 if (OrderRelation.Base(p) == OrderRelation.Base(q))
                 {
                     var res = OrderRelation.Base(p) ^ (OrderRelation.Exponent(p) + OrderRelation.Exponent(q));
-                                        
+
                     if (res == 1) return ImmutableList.Create<MathObject>();
 
                     return ImList(res);
@@ -1137,9 +1312,9 @@ namespace Symbolism
 
             // Without the below, the following throws an exception:
             // sqrt(a * b) * (sqrt(a * b) / a) / c
-                        
+
             if (res.Any(elt => elt is Product)) return Product.FromRange(res).Simplify();
-                        
+
             return Product.FromRange(res);
         }
 
@@ -1151,13 +1326,22 @@ namespace Symbolism
 
         public MathObject Map(Func<MathObject, MathObject> proc) =>
             Product.FromRange(elts.Select(proc)).Simplify();
+
+        public override string ToMathml(bool useMathmlDeclaration = false)
+        {
+            return string.Join("<mo>·</mo>", elts.ConvertAll(elt => elt.Precedence() < Precedence() ? $"<mfenced><mrow>{elt.ToMathml()}</mrow></mfenced>" : $"{elt.ToMathml()}"));
+        }
     }
 
     public class Sum : MathObject
     {
         public readonly ImmutableList<MathObject> elts;
 
-        public Sum(params MathObject[] ls) { elts = ImmutableList.Create(ls); }
+        public Sum(params MathObject[] ls)
+        {
+            elts = ImmutableList.Create(ls);
+            elts.ForEach(e => { e.Parent = this; });
+        }
 
         public static Sum FromRange(IEnumerable<MathObject> ls) => new Sum(ls.ToArray());
 
@@ -1201,7 +1385,7 @@ namespace Symbolism
             if (b is Fraction) val = a.val + ((Fraction)b).ToDouble().val;
 
             if (val == 0.0) return ImmutableList.Create<MathObject>();
-                        
+
             return ImmutableList.Create<MathObject>(new DoubleFloat(val));
         }
 
@@ -1239,7 +1423,7 @@ namespace Symbolism
                     (elts[1] is Integer || elts[1] is Fraction))
                 {
                     var P = Rational.SimplifyRNE(new Sum(elts[0], elts[1]));
-                                        
+
                     if (P == 0) return ImmutableList.Create<MathObject>();
 
                     return ImList(P);
@@ -1312,6 +1496,37 @@ namespace Symbolism
 
         public MathObject Map(Func<MathObject, MathObject> proc) =>
             Sum.FromRange(elts.Select(proc)).Simplify();
+
+        public override string ToMathml(bool useMathmlDeclaration = false)
+        {
+            string mathmlResult = string.Empty;
+            int count = 0;
+            foreach (var item in elts)
+            {
+                if (item is Product && (item as Product).elts[0] is Number)
+                {
+                    if (((item as Product).elts[0] as Number).ToDouble().val < 0)
+                    {
+                        mathmlResult = string.Concat(mathmlResult, "<mo>-</mo>", (-1 * item).ToMathml());
+                    }
+                    else
+                    {
+                        mathmlResult = string.Concat(mathmlResult, count == 0 ? string.Empty : "<mo>+</mo>", item.ToMathml());
+                    }
+                }
+                else
+                {
+                    mathmlResult = string.Concat(mathmlResult, count == 0 ? string.Empty : "<mo>+</mo>", item.ToMathml());
+                }
+
+                count++;
+            }
+
+            var result = mathmlResult;
+            return useMathmlDeclaration ? string.Format(MathmlDeclaration, result) : result;
+
+            //return String.Join("<mo>+</mo>", elts.ConvertAll(elt => elt.Precedence() < Precedence() ? $"<mfenced><mrow>{elt.ToMathml()}</mrow></mfenced>)" : $"{elt.ToMathml()}"));
+        }
     }
 
     class Difference : MathObject
@@ -1333,7 +1548,7 @@ namespace Symbolism
     class Quotient : MathObject
     {
         public readonly ImmutableList<MathObject> elts;
-                
+
         public Quotient(params MathObject[] ls) => elts = ImmutableList.Create(ls);
 
         public MathObject Simplify() => elts[0] * (elts[1] ^ -1);
