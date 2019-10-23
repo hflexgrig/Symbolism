@@ -139,8 +139,6 @@ namespace Symbolism
             throw new Exception();
         }
 
-        public virtual MathObject Parent { get; set; }
-
         public virtual string ToMathml(bool useMathmlDeclaration = false) => string.Empty;
 
         protected static string ToMathml(string result, bool useMathmlDeclaration = false)
@@ -437,14 +435,9 @@ namespace Symbolism
 
     public class Norm : Function
     {
-        private MathObject _x;
-
-        public Norm(MathObject x) : base(null, null, null)
+        public Norm(MathObject x) : base("norm", null, new List<MathObject> { x})
         {
-            name = "norm";
-            _x = x;
-            args = ImmutableList.Create(_x);
-            proc = NormProc;
+            this.proc = proc??NormProc;
         }
 
         MathObject NormProc(MathObject[] ls)
@@ -1336,7 +1329,6 @@ namespace Symbolism
         public Sum(params MathObject[] ls)
         {
             elts = ImmutableList.Create(ls);
-            elts.ForEach(e => { e.Parent = this; });
         }
 
         public static Sum FromRange(IEnumerable<MathObject> ls) => new Sum(ls.ToArray());
