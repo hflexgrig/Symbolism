@@ -143,6 +143,11 @@ namespace Symbolism
 
         public virtual string ToMathml(bool useMathmlDeclaration = false) => string.Empty;
 
+        protected static string ToMathml(string result, bool useMathmlDeclaration = false)
+        {
+            return useMathmlDeclaration ? string.Format(MathmlDeclaration, result) : result;
+        }
+
         public virtual MathObject Numerator() => this;
 
         public virtual MathObject Denominator() => 1;
@@ -151,6 +156,7 @@ namespace Symbolism
         { throw new Exception("MathObject.Equals called - abstract class"); }
 
         public override int GetHashCode() => base.GetHashCode();
+        
     }
 
     public class Equation : MathObject
@@ -179,14 +185,10 @@ namespace Symbolism
 
         public override string ToMathml(bool useMathmlDeclaration = false)
         {
-            var equalsResult = a.ToMathml() + "<mo>=</mo>" + b.ToMathml();
-            var notEqualsResult = a.ToMathml() + "<mo>≠</mo>" + b.ToMathml();
-            var lessThenResult = a.ToMathml() + "<mo><</mo>" + b.ToMathml();
-            var greaterThenResult = a.ToMathml() + "<mo>></mo>" + b.ToMathml();
-            if (Operator == Operators.Equal) return useMathmlDeclaration ? string.Format(MathmlDeclaration, equalsResult) : equalsResult;
-            if (Operator == Operators.NotEqual) return useMathmlDeclaration ? string.Format(MathmlDeclaration, notEqualsResult) : notEqualsResult;
-            if (Operator == Operators.LessThan) return useMathmlDeclaration ? string.Format(MathmlDeclaration, lessThenResult) : lessThenResult;
-            if (Operator == Operators.GreaterThan) return useMathmlDeclaration ? string.Format(MathmlDeclaration, greaterThenResult) : greaterThenResult;
+            if (Operator == Operators.Equal) return ToMathml(a.ToMathml() + "<mo>=</mo>" + b.ToMathml(), useMathmlDeclaration);
+            if (Operator == Operators.NotEqual) return ToMathml(a.ToMathml() + "<mo>≠</mo>" + b.ToMathml(), useMathmlDeclaration);
+            if (Operator == Operators.LessThan) return ToMathml(a.ToMathml() + "<mo><</mo>" + b.ToMathml(), useMathmlDeclaration);
+            if (Operator == Operators.GreaterThan) return ToMathml(a.ToMathml() + "<mo>></mo>" + b.ToMathml(), useMathmlDeclaration);
             throw new Exception();
         }
 
@@ -310,8 +312,7 @@ namespace Symbolism
 
         public override string ToMathml(bool useMathmlDeclaration = false)
         {
-            var result = $"<mn>{val}</mn>";
-            return useMathmlDeclaration ? string.Format(MathmlDeclaration, result) : result;
+            return ToMathml($"<mn>{val}</mn>", useMathmlDeclaration);
         }
     }
 
@@ -351,8 +352,7 @@ namespace Symbolism
         {
             var arr = val.ToString().Split('.');
             var rest = arr.Length > 1 ? $"<mo>.</mo><mn>{arr[1]}</mn>" : string.Empty;
-            var result = $"<mn>{arr[0]}</mn>{rest}";
-            return useMathmlDeclaration ? string.Format(MathmlDeclaration, result) : result;
+            return ToMathml($"<mn>{arr[0]}</mn>{rest}", useMathmlDeclaration);
         }
     }
 
@@ -384,14 +384,13 @@ namespace Symbolism
         {
             if (new Norm(numerator).Simplify() < denominator || numerator == denominator)
             {
-                var result = $"<mfrac><mrow>{numerator.ToMathml()}</mrow><mrow>{denominator.ToMathml()}</mrow></mfrac>";
-                return useMathmlDeclaration ? string.Format(MathmlDeclaration, result) : result;
+                return ToMathml($"<mfrac><mrow>{numerator.ToMathml()}</mrow><mrow>{denominator.ToMathml()}</mrow></mfrac>", useMathmlDeclaration);
             }
 
             BigInteger rem;
 
             var quot = BigInteger.DivRem(numerator.val, denominator.val, out rem);
-            return new MixedNumber(new Integer(quot), new Norm(rem).Simplify() as Integer, denominator).ToMathml();
+            return new MixedNumber(new Integer(quot), new Norm(rem).Simplify() as Integer, denominator).ToMathml(useMathmlDeclaration);
         }
     }
 
@@ -412,8 +411,7 @@ namespace Symbolism
 
         public override string ToMathml(bool useMathmlDeclaration = false)
         {
-            var result = $"{quotient.ToMathml()}<mfrac><mrow>{numerator.ToMathml()}</mrow><mrow>{denominator.ToMathml()}</mrow></mfrac>";
-            return useMathmlDeclaration ? string.Format(MathmlDeclaration, result) : result;
+            return ToMathml($"{quotient.ToMathml()}<mfrac><mrow>{numerator.ToMathml()}</mrow><mrow>{denominator.ToMathml()}</mrow></mfrac>", useMathmlDeclaration);
         }
 
         public Fraction ToFraction() => new Fraction((quotient * denominator + numerator) as Integer, denominator);
@@ -483,8 +481,7 @@ namespace Symbolism
 
         public override string ToMathml(bool useMathmlDeclaration = false)
         {
-            var result = $"<mfenced open=\"|\" close=\"|\"><mrow>{args[0].ToMathml()}</mrow></mfenced>";
-            return useMathmlDeclaration ? string.Format(MathmlDeclaration, result) : result;
+            return ToMathml($"<mfenced open=\"|\" close=\"|\"><mrow>{args[0].ToMathml()}</mrow></mfenced>", useMathmlDeclaration);
         }
     }
 
@@ -735,8 +732,7 @@ namespace Symbolism
 
         public override string ToMathml(bool useMathmlDeclaration = false)
         {
-            var result = string.Format("<mi>{0}</mi>", name);
-            return useMathmlDeclaration ? string.Format(MathmlDeclaration, result) : result;
+            return ToMathml(string.Format("<mi>{0}</mi>", name), useMathmlDeclaration);
         }
     }
 
@@ -857,7 +853,7 @@ namespace Symbolism
 
         public override string ToMathml(bool useMathmlDeclaration = false)
         {
-            return $"<mfenced open=\"{{\" close=\"}}\"><mrow>{string.Join("<mo>,</mo>", args.ConvertAll(arg => arg.ToMathml()))}</mrow></mfenced>";
+            return ToMathml($"<mfenced open=\"{{\" close=\"}}\"><mrow>{string.Join("<mo>,</mo>", args.ConvertAll(arg => arg.ToMathml()))}</mrow></mfenced>", useMathmlDeclaration);
         }
     }
 
@@ -902,7 +898,7 @@ namespace Symbolism
 
         public override string ToMathml(bool useMathmlDeclaration = false)
         {
-            return $"<mfenced open=\"[\" close=\"]\"><mrow>{string.Join("<mo>,</mo>", args.ConvertAll(arg => arg.ToMathml()))}</mrow></mfenced>";
+            return ToMathml($"<mfenced open=\"[\" close=\"]\"><mrow>{string.Join("<mo>,</mo>", args.ConvertAll(arg => arg.ToMathml()))}</mrow></mfenced>", useMathmlDeclaration);
         }
     }
 
@@ -1139,17 +1135,17 @@ namespace Symbolism
         {
             if (exp == new Integer(1) / new Integer(2))
             {
-                return $"<msqrt>{bas.ToMathml()}</msqrt>";
+                return ToMathml($"<msqrt>{bas.ToMathml()}</msqrt>", useMathmlDeclaration);
             }
 
             if (exp is Fraction && (exp as Fraction).numerator == 1)
             {
-                return $"<mroot><mrow>{bas.ToMathml()}</mrow>{(exp as Fraction).denominator.ToMathml()}</mroot>";
+                return ToMathml($"<mroot><mrow>{bas.ToMathml()}</mrow>{(exp as Fraction).denominator.ToMathml()}</mroot>", useMathmlDeclaration);
             }
 
-            return string.Format("<msup><mrow>{0}</mrow><mrow>{1}<mrow></msup>",
+            return ToMathml(string.Format("<msup><mrow>{0}</mrow><mrow>{1}<mrow></msup>",
                 bas.Precedence() < Precedence() ? $"<mfenced><mrow>{bas.ToMathml()}</mrow></mfenced>" : $"{bas.ToMathml()}",
-                exp.Precedence() < Precedence() ? $"<mfenced><mrow>{exp.ToMathml()}</mrow></mfenced>" : $"{exp.ToMathml()}");
+                exp.Precedence() < Precedence() ? $"<mfenced><mrow>{exp.ToMathml()}</mrow></mfenced>" : $"{exp.ToMathml()}"), useMathmlDeclaration);
 
         }
     }
@@ -1329,7 +1325,7 @@ namespace Symbolism
 
         public override string ToMathml(bool useMathmlDeclaration = false)
         {
-            return string.Join("<mo>·</mo>", elts.ConvertAll(elt => elt.Precedence() < Precedence() ? $"<mfenced><mrow>{elt.ToMathml()}</mrow></mfenced>" : $"{elt.ToMathml()}"));
+            return ToMathml(string.Join("<mo>·</mo>", elts.ConvertAll(elt => elt.Precedence() < Precedence() ? $"<mfenced><mrow>{elt.ToMathml()}</mrow></mfenced>" : $"{elt.ToMathml()}")), useMathmlDeclaration);
         }
     }
 
@@ -1523,7 +1519,7 @@ namespace Symbolism
             }
 
             var result = mathmlResult;
-            return useMathmlDeclaration ? string.Format(MathmlDeclaration, result) : result;
+            return ToMathml(result, useMathmlDeclaration);
 
             //return String.Join("<mo>+</mo>", elts.ConvertAll(elt => elt.Precedence() < Precedence() ? $"<mfenced><mrow>{elt.ToMathml()}</mrow></mfenced>)" : $"{elt.ToMathml()}"));
         }
